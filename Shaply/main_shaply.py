@@ -3,19 +3,26 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 import json
-import shap
 import matplotlib.pyplot as plt
 import random
-import os
-os.chdir('/home/kanna/PycharmProjects/Gen2Vec/shap')
-from Model import NeuralNetwork
-from TrainTest import test
+from model import NeuralNetwork
 import preProcessing
+import shap
 import warnings
+from TrainTest import test
 warnings.filterwarnings("ignore")
 import seaborn as sns
 
-def set_seed(seed=0):
+best_params = {"dropout_prob": 0.0,
+               'initialization': True,
+               "alpha": 0.5,
+               "hidden1": 10,
+               "hidden2": 8}
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def set_seed(seed=42):
     np.random.seed(seed)
     torch.manual_seed(seed)
     random.seed(seed)
@@ -31,42 +38,25 @@ def compute_output():
         suffix = 'Basic_dx_HLA_KIR'
         param_set = 'KIR'
 
-        file_input_train = f"Input_train_{suffix}.csv"
+        file_input_train = f"./Data/Input_train_{suffix}.csv"
         file_input = f"Input_train_{suffix}.csv"
-        model_path = f"model_{category}_{suffix}_new.pth"
-        file_label = f"../290123/Output_train.csv"
+        file_label = f"./Data/Output_train.csv"
         binary_predict = True
 
         params = {'output_size': 1,
                   'num_output': 1,
                   'cuda_device': 0}
 
-        use_nni_params = True
-
-        if use_nni_params:
-            with open('best_params.json') as json_file:
-                best_params = json.load(json_file)[f'nni_opti_param_{category}_{param_set}']
-        else:
-            best_params = {"dropout_prob": 0.0,
-                           'initialization': True,
-                           "alpha": 0.5,
-                           "hidden1": 10,
-                           "hidden2": 8}
-
         params.update(best_params)
 
         # Get cpu or gpu device for training.
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         set_seed(0)
 
         # load data
         pre_data_x_train = pd.read_csv(file_input_train, delimiter=',')
         pre_data_x = pd.read_csv(file_input, delimiter=',')
-        pre_data_x_train = preProcessing.replace_HLA_akiva_data(pre_data_x_train)
-        pre_data_x = preProcessing.replace_HLA_akiva_data(pre_data_x)
-
-
-        #pre_data_x["A-2"] = pre_data_x["A-2"] - pre_data_x["A-1"]
+        pre_data_x_train = preProcessing.replace_HLA(pre_data_x_train)
+        pre_data_x = preProcessing.replace_HLA(pre_data_x)
 
 
         data_x = pre_data_x.values
@@ -92,12 +82,6 @@ def compute_output():
         # Compute output
         dims = [input_size, params['hidden1'], params['hidden2'], params['output_size']]
         model = NeuralNetwork(dims, params['num_output'], params['dropout_prob'], params['initialization']).to(device)
-        try:
-            model.load_state_dict(torch.load(model_path))
-        except:
-            param_set = "Basic"
-            with open('best_params.json') as json_file:
-                best_params = json.load(json_file)[f'nni_opti_param_{category}_{param_set}']
         loss, auc, corr = test(test_dataloader, model, best_params['alpha'], var, device)
 
         # Print output
@@ -113,13 +97,8 @@ def compute_output():
 
         # create csv file of the coefficients
         shap_values_df = pd.DataFrame(shap_values.values, columns=pre_data_x.columns)
-        shap_values_df.to_csv(f'shap_values_{category}_{suffix}_{bin_or_cont}0.csv')
+        shap_values_df.to_csv(f'shap_values_{category}_{suffix}_{bin_or_cont}.csv')
 
-        # shap_coeff = np.mean(shap_values.values, axis=0)
-        # shap_df = pd.DataFrame(shap_coeff, index=pre_data_x.columns, columns=[f'{category}_shap'])
-        # shap_df.to_csv(f'shap_coeff_{category}_{suffix}_{bin_or_cont}.csv')
-        # save = np.asmatrix(shap_values.values)
-        # np.savetxt(f"shap_values_{category}_{suffix}_{bin_or_cont}.csv", save, delimiter=",")
 
 def process_shap(input_df):
     # normalize the input data
@@ -130,15 +109,11 @@ def process_shap(input_df):
         mul_df = input_df * shap_df.values
         shap_df_all[category + "_shap"] = mul_df.sum(axis=0)
 
-    min_value = shap_df_all.min().min()
-    max_value = shap_df_all.max().max()
-    # divide the positive values by the max value and the negative values by the min value
-    # shap_df_all = shap_df_all.applymap(lambda x: x / max_value if x > 0 else -x / min_value)
     shap_df_all.to_csv('shap_df_all.csv')
     return shap_df_all
 
 
-def print_shap_akiva():
+def print_shap():
     suffix = 'Basic_dx_HLA_KIR'
     type = 'shap'
     scaling = 'rescaled'
@@ -146,12 +121,9 @@ def print_shap_akiva():
     data = data.iloc[:, :50]
     sns.set(font_scale=1.5)
     # palette = sns.color_palette("ch:s=.25,rot=-.25", as_cmap=True)
-    cols = data.columns.values.tolist()
     rows = ['GVH2', 'GVH3', 'CGVH', 'Rel', 'Sur']
     plt.rcParams["figure.figsize"] = (12, 12)
-    # hmap = sns.heatmap(data=data, vmin=-1.0, vmax=1.0, cmap=plt.get_cmap('bwr'),
-    #                    xticklabels=cols, yticklabels=rows,
-    #                    cbar=False)
+
     data = data.T
     data.columns = rows
     data = data[['Sur', 'Rel', 'CGVH', 'GVH3', 'GVH2']]
@@ -161,57 +133,17 @@ def print_shap_akiva():
                        # cbar=False
                        )
     hmap.xaxis.tick_top()
-    # cmap=palette,  vmin=0.0, vmax=palette.N, linewidths=0.1, linecolor='gray', xticklabels=cols, yticklabels=rows, cbar_pos=None)
     plt.savefig(f'heatmap_{type}_{suffix}_{scaling}_rel_Basic.png')
     plt.show()
 
 
-def print_my_shap(data):
-    if data is None:
-        data = pd.read_csv('shap_all.csv', index_col=0)
-    # normalize z-score
-    # data = (data - data.mean()) / data.std()
-    data.columns = [col.split("_")[0] for col in data.columns]
-    data = data[['Sur', 'DFS', 'CGVH', 'GVH3', 'GVH2']]
-    Demo_ind = [ind for ind in data.index if len(ind.split("-")) == 1 and len(ind.split("."))== 1]
-    HLA_ind = [ind for ind in data.index if len(ind.split("-")) == 2]
-    KIR_ind = [ind for ind in data.index if len(ind.split(".")) == 2]
-    hmap = sns.heatmap(data=data.loc[Demo_ind], vmin=-1.0, vmax=1.0, cmap=plt.get_cmap('bwr'),
-                       # xticklabels=rows,
-                       # yticklabels=cols,
-                       # cbar=False
-                       )
-    hmap.xaxis.tick_top()
-    plt.savefig(f'shap_all_Demo0.png')
-    plt.show()
-
-    hmap = sns.heatmap(data=data.loc[HLA_ind], vmin=-1.0, vmax=1.0, cmap=plt.get_cmap('bwr'),
-                       # xticklabels=rows,
-                       # yticklabels=cols,
-                       # cbar=False
-                       )
-    hmap.xaxis.tick_top()
-    plt.savefig(f'shap_all_HLA0.png')
-    plt.show()
-
-    hmap = sns.heatmap(data=data.loc[KIR_ind], vmin=-1.0, vmax=1.0, cmap=plt.get_cmap('bwr'),
-                       # xticklabels=rows,
-                       # yticklabels=cols,
-                       # cbar=False
-                       )
-    hmap.xaxis.tick_top()
-    plt.savefig(f'shap_all_KIR0.png')
-    plt.show()
 
 
 if __name__ == "__main__":
-    # compute_output()
+    compute_output()
     suffix = 'Basic_dx_HLA_KIR'
     file_input = f"Input_train_{suffix}.csv"
     bin_or_cont = 'bin'
     input_df = pd.read_csv(file_input, delimiter=',')
     data = process_shap(input_df)
-    print_my_shap(data)
-
-    # print_shap_akiva()
-    # compute_output()
+    print_shap(data)

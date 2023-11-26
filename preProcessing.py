@@ -5,8 +5,7 @@ import numpy as np
 from scipy.stats import entropy
 from sklearn.model_selection import train_test_split
 
-path_to_dir = "/home/kanna/PycharmProjects/Gen2Vec/"
-def replace_HLA_all_data(data_heder, data):
+def replace_HLA(data_heder, data):
     cols_heder = data_heder.columns
     specipic_names = data.columns
     unique_HLA_cols = set([col.split("-")[0] for col, heder in zip(specipic_names, cols_heder) if "HLA" in heder])
@@ -16,25 +15,10 @@ def replace_HLA_all_data(data_heder, data):
         data[col + "-2"] = data[col + "-2"] - data[col + "-1"]
     return data
 
-def replace_HLA_akiva_data(data):
-    cols = data.columns
-    # HLA cols are the cols that divided to 3
-    divided_cols = [col.split("-")[0] for col in cols]
-    unique_HLA_cols = set([col for col in divided_cols if divided_cols.count(col) == 3])
-    # replace all HLA
-    for col in unique_HLA_cols:
-        data[col + "-3"] = data[col + "-3"] - data[col + "-2"]
-        data[col + "-2"] = data[col + "-2"] - data[col + "-1"]
-    return data
 
 def matchdataframes(data1, data2):
-
-
     # match dataframes based on their results
     common_cols = list(data1.columns.intersection(data2.columns))
-
-    # index_list = df[(df['A'] == 2) & (df['B'] == 3)].index.tolist()
-
     all_df = pd.merge(data1, data2, on=common_cols, how='left', indicator='exists')
     all_df['exists'] = np.where(all_df.exists == 'both', True, False)
     # return dataframe where both dataframes have the same values in common columns
@@ -51,7 +35,6 @@ def get_sum_hla(dataframe):
 
 
 def get_sum_kir(dataframe):
-    cols_types = ["L.PT", "L.DNR", "S.PT", "S.DNR"]
     columns_to_LS = {col: col.split(".")[0][2] for col in dataframe.columns}
     columns_to_PD = {col: col.split(".")[1] for col in dataframe.columns}
 
@@ -69,17 +52,10 @@ def get_sum_kir(dataframe):
 
 
 def get_labels(labels_dataframe):
-    # labels_columns = ['DelSur', 'FlagSur', 'DelGVH2', 'FlagGVH2', 'DelGVH3', 'FlagGVH3',
-    #                   'DelCGVH', 'FlagCGVH', 'DelDFS', 'FlagDFS']
-
     # labels_dataframe = dataframe[[col for col in dataframe if col in labels_columns]]
     labels_dataframe = labels_dataframe.replace(".", 5)
     labels_dataframe = labels_dataframe.replace(-1, 5)
     labels_dataframe = labels_dataframe.replace("-1", 5)
-
-    # labels_dataframe = labels_dataframe.rename(
-    #     columns={col: "Del" + col[4:] if "Flag" in col else col for col in labels_dataframe}, inplace=False)
-
     # add flag for events
     for col in labels_dataframe.columns:
         if "Del" in col:
@@ -118,11 +94,11 @@ def feature2type():
             group = "None"
         return group
 
-    df = pd.read_csv(f"{path_to_dir}290123/Akiva_Data.csv")
+    df = pd.read_csv(f"All_Data.csv")
     features_names = df.iloc[0]
     feature2typedict = {feature:ftype.split(".")[0] for ftype, feature in features_names.items()}
 
-    df = pd.read_csv(f"{path_to_dir}290123/All_Data.csv", index_col=0, header=0)
+    df = pd.read_csv(f"All_Data.csv", index_col=0, header=0)
     features_names = df.iloc[1]
     feature2embedding = {feature: get_emb_group(ftype[ftype.find("Emb")+3]) for ftype, feature in features_names.items()}
 
@@ -138,11 +114,11 @@ def remove_sparse_columns(df):
 
 def get_processed_data(types = ["Demographics"]):
 
-    input_train = pd.read_csv(f"{path_to_dir}290123/Input_train_Basic_dx_HLA_KIR.csv")
-    input_test = pd.read_csv(f"{path_to_dir}290123/Input_test_Basic_dx_HLA_KIR.csv")
+    input_train = pd.read_csv(f"Input_train_Basic_dx_HLA_KIR.csv")
+    input_test = pd.read_csv(f"Input_test_Basic_dx_HLA_KIR.csv")
 
-    output_train = pd.read_csv(f"{path_to_dir}290123/Output_train.csv")
-    output_test = pd.read_csv(f"{path_to_dir}290123/Output_test.csv")
+    output_train = pd.read_csv(f"Data/Output_train.csv")
+    output_test = pd.read_csv(f"Data/Output_test.csv")
 
     features_types_dict, feature2embeddingdict = feature2type()
 
@@ -167,15 +143,14 @@ def get_processed_data(types = ["Demographics"]):
 
 
 def get_processed_train_and_test(types = ["Demographics"]):
-    input_train = pd.read_csv(f"{path_to_dir}/290123/Input_train_Basic_dx_HLA_KIR.csv")
-    input_test = pd.read_csv(f"{path_to_dir}290123/Input_test_Basic_dx_HLA_KIR.csv")
+    input_train = pd.read_csv(f"Input_train_Basic_dx_HLA_KIR.csv")
+    input_test = pd.read_csv(f"Input_test_Basic_dx_HLA_KIR.csv")
 
-    output_train = pd.read_csv(f"{path_to_dir}290123/Output_train.csv")
-    output_test = pd.read_csv(f"{path_to_dir}290123/Output_test.csv")
+    output_train = pd.read_csv(f"Data/Output_train.csv")
+    output_test = pd.read_csv(f"Data/Output_test.csv")
 
     features_types_dict, feature2embeddingdict = feature2type()
 
-    # X = get_input_dataframe(input_train, types_to_take=["Demographics", "HLA", "KIR"], features_types_dict=features_types_dict)
     X_train = get_input_dataframe(input_train, types_to_take=types, features_types_dict=features_types_dict)
     y_train = get_labels(output_train)
 
@@ -197,41 +172,25 @@ def get_processed_train_and_test(types = ["Demographics"]):
     return X_train, y_train, X_test, y_test
 
 def get_all_test():
-    input_test = pd.read_csv(f"{path_to_dir}290123/Input_test_Basic_dx_HLA_KIR.csv")
+    input_test = pd.read_csv(f"Input_test_Basic_dx_HLA_KIR.csv")
     features_types_dict, feature2embeddingdict = feature2type()
 
     X_test = get_input_dataframe(input_test, types_to_take=["Demographics", "HLA", "KIR"], features_types_dict=features_types_dict)
     return X_test
 
 def get_all_data():
-    input_test = pd.read_csv(f"{path_to_dir}290123/Input_test_Basic_dx_HLA_KIR.csv")
+    input_test = pd.read_csv(f"Input_test_Basic_dx_HLA_KIR.csv")
     features_types_dict, feature2embeddingdict = feature2type()
 
     X_test = get_input_dataframe(input_test, types_to_take=["Demographics", "HLA", "KIR"],
                                  features_types_dict=features_types_dict)
 
-    input_train = pd.read_csv(f"{path_to_dir}290123/Input_train_Basic_dx_HLA_KIR.csv")
+    input_train = pd.read_csv(f"Input_train_Basic_dx_HLA_KIR.csv")
 
     X_train = get_input_dataframe(input_train, types_to_take=["Demographics", "HLA", "KIR"],
                                  features_types_dict=features_types_dict)
     return X_train, X_test
 
-# def features_pre_process(features):
-#     # Get dummies
-#     output_features = features[['Age', 'Sex', 'Donor Age', 'Donor Sex']]
-#     input_features = features.drop(['Age', 'Sex', 'Donor Age', 'Donor Sex'], axis=1)
-#
-#     # replace nan
-#     input_features = input_features.apply(replace_invalid_values)
-#     output_features[['Age', 'Donor Age']] = output_features[['Age', 'Donor Age']].apply(replace_point_to_average)
-#
-#     # replace in te average
-#     new_features = pd.concat([input_features, output_features], axis=1)
-#     features = pd.get_dummies(new_features)
-#     # drop columns that unknown
-#     cols_to_drop = [col for col in features.columns if "UNKNOWN" in col]
-#     features = features.drop(cols_to_drop, axis=1)
-#     return features
 
 def features_pre_process(features):
     # Get dummies
@@ -251,17 +210,6 @@ def features_pre_process(features):
     return new_features
 
 
-# def replace_invalid_values(df_column):
-#     def replace_to_valid(value):
-#         try:
-#             newval = str(round(value))
-#         except:
-#             newval = "UNKNOWN"
-#         return newval
-#     df_column = df_column.apply(replace_to_valid)
-#     return df_column
-
-
 def replace_to_string(df_column):
     def replace_to_str(value):
         if isinstance(value, str):
@@ -271,6 +219,7 @@ def replace_to_string(df_column):
         return value
     df_column = df_column.apply(replace_to_str)
     return df_column
+
 
 def replace_point_to_average(age_df):
     # calculate average
@@ -290,7 +239,7 @@ def labels_pre_process(labels_df):
     return labels_output
 
 
-def entropy1(labels, base=None):
+def calc_entropy(labels, base=None):
   value ,counts = np.unique(labels, return_counts=True)
   return entropy(counts, base=base)
 

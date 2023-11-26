@@ -11,15 +11,6 @@ import scipy
 labels_options = ["Sur", "GVH2", "GVH3", "CGVH", "DFS"]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# batch_size = 64
-# MAX_EPOCHS = 100
-# lr = 0.005
-# wd = 0.0015
-# drop = 0.3
-# alpha = 0.7
-# alpha = 0
-# hidden1 = 20
-# hidden2 = 5
 
 
 class Dataset(torch.utils.data.Dataset):

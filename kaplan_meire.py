@@ -3,13 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from lifelines import KaplanMeierFitter
 from lifelines import NelsonAalenFitter
-import akiva_model
-import main_script
-from sklearn.model_selection import train_test_split
 import preProcessing
 import warnings
 from sklearn import preprocessing
 import pickle
+import Models
 warnings.filterwarnings("ignore")
 categories = ['GVH2', 'GVH3', 'CGVH', 'DFS', 'Sur']
 
@@ -70,7 +68,7 @@ def get_score():
         X_train, y_train, X_test, y_test = preProcessing.get_processed_train_and_test()
         # find the columns in X_train that are not in X_test
 
-        auc_val_vec2, auc_train_vec2, correlation_vec, models = akiva_model.train_model(X_train.values, y_train, X_test.values,
+        auc_val_vec2, auc_train_vec2, correlation_vec, models = Models.base_model.train_model(X_train.values, y_train, X_test.values,
                                                                                 y_test)
         X_test_copy = X_test.copy()
         X_train = X_train.__array__()
@@ -94,7 +92,7 @@ def get_score():
             X_test_copy_all = pd.concat([X_test_copy_all, y], axis=1)
 
         # save the data
-        with open("X_test_score_demographic_without_processing.pkl", "wb") as f:
+        with open("X_test_score.pkl", "wb") as f:
             pickle.dump(X_test_copy_all, f)
     return X_test_copy
 
@@ -130,27 +128,11 @@ def plot_kaplan_by_score():
                 results_temp.append(naf.predict(1000))
             else:
                 results_temp.append(0)
-        axs[i].set_title(f'{cat}')
-        # set y axis to be between 0 and 1 with 0.2 steps
-        axs[i].set_yticks(np.arange(0, 1.2, 0.2))
-        # delete x label
-        axs[i].set_xlabel('')
-        # delete y ticks
-        # axs[i].set_yticklabels([])
-
-        # axs[i].set(xlabel='Time', ylabel='Survival probability')
-        # fig.savefig(f'plots/km_{cat}_shaded.png')
-        # plt.show()
-        # pd.DataFrame(results_temp).to_csv(f'results/km_{cat}.csv')
         results.append(results_temp)
 
     save = np.asmatrix(results)
-    np.savetxt(f"haz1_split_to_2.csv", save, delimiter=",")
-    plt.tight_layout()
-    plt.savefig(f'plots/km_score.png')
-    plt.show()
-    a=1
-
+    np.savetxt(f"hazard.csv", save, delimiter=",")
+    return save
 def plot_kaplan_by_cy():
     file = f'data/Hazard_HLA_sum.csv'
     cy = pd.read_csv("290123/All_Data.csv", header=2)["CY"]
@@ -158,11 +140,8 @@ def plot_kaplan_by_cy():
     data = pd.read_csv(file, delimiter=',', na_values=na_values_symbols)
     data["CY"] = cy
 
-    # data_cy = [data[cy == 0], data[cy == 1]]
-    # columns = data.columns.values.tolist()[11:]
+
     results = []
-    # min = 12
-    # max = 18
 
     for cat in categories:
         results_cat = []
@@ -196,67 +175,6 @@ def plot_kaplan_by_cy():
 
     save = np.asmatrix(results)
     np.savetxt(f"haz_cy_{cy_value}.csv", save, delimiter=",")
-
-def original():
-    file = f'data/Hazard_HLA_sum.csv'
-    cy = pd.read_csv("290123/All_Data.csv", header=2)["CY"]
-    na_values_symbols = [-1]
-    data = pd.read_csv(file, delimiter=',', na_values=na_values_symbols)
-
-    data_cy = [data[cy == 0], data[cy == 1]]
-    columns = data.columns.values.tolist()[11:]
-    results = []
-    min = 12
-    max = 18
-
-    for cy_value in np.unique(cy):
-        data = data_cy[cy_value]
-        for cat in categories:
-            results_temp1 = {}
-
-            new_data = data[~data[f'Day{cat}'].isna()]
-            T = new_data[f'Day{cat}']
-            E = new_data[f'Flag{cat}']
-            for col in columns:
-                results_temp = []
-                print(f'{cat}_{col}')
-                fig, ax = plt.subplots()
-
-                for num in range(min, max + 1):
-
-                    if num == min:
-                        condition = (new_data[col] <= num)
-                    elif num == max:
-                        condition = (new_data[col] >= num)
-                    else:
-                        condition = (new_data[col] == num)
-
-                    TP = T[condition]
-                    EP = E[condition]
-
-                    if T.size != 0:
-                        kmf = KaplanMeierFitter()
-                        kmf.fit(TP, event_observed=EP, label=18 - num)
-                        kmf.plot_survival_function(ax=ax, ci_show=False, loc=slice(0., 1000.))
-
-                        naf = NelsonAalenFitter()
-                        naf.fit(TP, event_observed=EP)
-                        results_temp.append(naf.predict(1000))
-                    else:
-                        results_temp.append(0)
-                results_temp1[col] = results_temp
-                plt.title(f'{cat}_{col}_cy_{cy_value}')
-                ax.set(xlabel='Time', ylabel='Survival probability')
-                fig.savefig(f'plots/km_{cat}_{col}_cy_{cy_value}.png')
-                plt.show()
-                a=1
-            pd.DataFrame(results_temp1).to_csv(f'results/km_{cat}_cy_{cy_value}.csv')
-
-            results.append(results_temp)
-
-        save = np.asmatrix(results)
-        np.savetxt(f"haz_cy_{cy_value}.csv", save, delimiter=",")
-
 
 def plot_kaplan_by_score_and_mismatch():
     fig, axs = plt.subplots(nrows=len(categories), ncols=1, figsize=(10, 20))
@@ -411,7 +329,7 @@ def plot_kaplen_by_most_important_KIR(model="cox"):
     plt.show()
 
 def plot_permissive():
-    y = pd.read_csv(f'All_Data.csv', header=2)
+    y = pd.read_csv(f'Data/All_Data.csv', header=2)
     file = f'Input_Age_HLA_KIR_permis.csv'
     na_values_symbols = [-1]
     data = pd.read_csv(file, delimiter=',', na_values=na_values_symbols)
@@ -502,21 +420,20 @@ def plot_kaplan_by_score_and_feature(feature):
     plt.savefig(f'plots/km_mismatch_{feature}.png')
     plt.show()
 
+
 if __name__ == '__main__':
-    x = pd.read_pickle("X_score_all_data.pkl")
-    x.to_csv("X_score_all_data.csv")
-    # get_score_cross_validation()
-    # plot_permissive()
-    # get_score()
-    # plot_kaplen_by_most_important_HLA(model="shap")
-    # plot_kaplen_by_most_important_KIR(model="hazard")
+    get_score_cross_validation()
+    plot_permissive()
+    get_score()
+    plot_kaplen_by_most_important_HLA(model="shap")
+    plot_kaplen_by_most_important_KIR(model="hazard")
 
-    # plot_kaplan_by_score_and_mismatch()
-    # plot_kaplan_by_score_and_feature("C-1")
-    # plot_kaplan_by_score_and_feature("C-3")
-    # plot_kaplan_by_score_and_feature("DRB1-1")
-    # plot_kaplan_by_score_and_feature("DRB1-3")
+    plot_kaplan_by_score_and_mismatch()
+    plot_kaplan_by_score_and_feature("C-1")
+    plot_kaplan_by_score_and_feature("C-3")
+    plot_kaplan_by_score_and_feature("DRB1-1")
+    plot_kaplan_by_score_and_feature("DRB1-3")
 
-    # plot_kaplan_by_cy()
-    # plot_kaplan_by_score()
+    plot_kaplan_by_cy()
+    plot_kaplan_by_score()
 

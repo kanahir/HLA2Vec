@@ -61,21 +61,6 @@ def get_new_data(filename=new_file_name, outputfilename=output_file_name):
     return data_features, labels
 
 
-def get2301data(outputfilename=output_file_name):
-    import preProcessing
-    import process_8dec22_data
-    data_features = process_8dec22_data.get_data()
-    demographic_features = get_demographic_features()
-    demographic_features = preProcessing.features_pre_process(demographic_features)
-    common_indexes = data_features[0].index.intersection(demographic_features.index)
-    data_features = [features.loc[common_indexes] for features in data_features]
-    demographic_features = demographic_features.loc[common_indexes]
-    data_features.append(demographic_features)
-    # data_features = pd.concat((data_features.loc[common_indexes], demographic_features.loc[common_indexes]), axis=1)
-    labels = read_output(outputfilename).loc[common_indexes]
-
-    return data_features, labels
-
 def get_AKIVA_input():
     input_dataframe = pd.read_excel(f'data/{akiva_input_file}', sheet_name="Input Final", index_col=0)
     return input_dataframe
@@ -186,7 +171,7 @@ def input_file_processing(filename=input_file_name, embedding_flag=False):
 
     input_dataframe = pd.read_excel(f'data/{filename}', usecols=relevant_columns, index_col=0)
 
-    # remove single raws
+    # remove single rows
     IDs = list(input_dataframe.index)
     single_id = [i for i in IDs if IDs.count(i)==1]
     input_dataframe = input_dataframe.drop(single_id)

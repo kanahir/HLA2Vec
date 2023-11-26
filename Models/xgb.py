@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import random
 import json
-
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -13,9 +12,7 @@ def set_seed(seed=0):
     np.random.seed(seed)
     random.seed(seed)
 
-
 def load_data(file_x, file_y, category):
-
     pre_data_x = pd.read_csv(file_x, delimiter=',')
     data_x = pre_data_x.values
 
@@ -68,7 +65,6 @@ def main(X_train, y_train, X_val, y_val, stratify=False):
         labels_val_for_task = labels_val.loc[Flag_val != 0]
         X_val_for_task = X_val.loc[Flag_val != 0].values
         # fixed params
-        # num_cross = 20
         num_cross = 1
 
         params = {"max_depth": 7,
@@ -77,11 +73,6 @@ def main(X_train, y_train, X_val, y_val, stratify=False):
                   "reg_lambda": 10,
                   "gamma": 0.5}
 
-        # file_input = f"Input_train_Basic_dx_HLA_KIR.csv"
-        # file_label = f"Output_train.csv"
-        #
-        # set_seed(0)
-        # data_x, data_y = load_data(file_input, file_label, category)
         train_auc = []
         val_auc = []
 
@@ -90,17 +81,6 @@ def main(X_train, y_train, X_val, y_val, stratify=False):
             train_auc.append(temp_train_auc)
             val_auc.append(temp_val_auc)
 
-        # print(category)
-        # print('')
-        # print("results_train")
-        # for t in train_auc:
-        #     print(t)
-        #
-        # print('')
-        # print("results_valid")
-        # for v in val_auc:
-        #     print(v)
-
         print(f"Valid mean is {np.mean(val_auc) :.2f}")
         print(f"Valid std is {np.std(val_auc) :.2f}")
         print(f"Train mean is {np.mean(train_auc) :.2f}")
@@ -108,27 +88,7 @@ def main(X_train, y_train, X_val, y_val, stratify=False):
         np.std(val_auc), np.std(train_auc)
         auc_val_vec[task] = np.mean(val_auc)
         auc_train_vec[task] = np.mean(train_auc)
-
     return auc_val_vec, auc_train_vec
 
 if __name__ == "__main__":
-
-    category = 'GVH2'
-    suffix_list = ['Basic_dx', 'HLA', 'KIR', 'Basic_dx_HLA', 'Basic_dx_KIR', 'HLA_KIR', 'Basic_dx_HLA_sum',
-                   'Basic_dx_KIR_sum', 'Basic_dx_HLA_KIR', 'Basic_dx_HLA_KIR_sum', 'Basic_dx_HLA_KIR_sum_sum']
-    param_set_list = ['Age', 'HLA', 'Age_HLA', 'Age_HLA_sum']
-    # stratify_list = [False, True]
-    stratify_list= [False]
-    results = []
-    count = 0
-
-    for strat in stratify_list:
-        for par_set in param_set_list:
-            for suff in suffix_list:
-                print('')
-                print('count is:', count)
-                results.append(main(category, stratify=True))
-                count += 1
-
-    save = np.asmatrix(results)
-    np.savetxt(f"grid_xgb_{category}_dx_all.csv", save, delimiter=",")
+   pass

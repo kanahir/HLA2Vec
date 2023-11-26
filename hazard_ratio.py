@@ -66,27 +66,18 @@ def calculate_auc(hazard_df):
     corr_df = pd.DataFrame.from_dict(correlation_dict)
     return correlation_dict
 
-
-if __name__ == '__main__':
-    hazard_df = pd.read_csv('haz_ratio_without_sparse.csv', index_col=0)
-    calculate_auc(hazard_df)
-    exit(1)
-
-    df = pd.read_csv('haz_ratio_without_sparse.csv', index_col=0)
-    plot_heatmap(df)
-    exit(1)
-
+def Hazrad_ratio():
     na_values_symbols = [-1]
-    data = pd.read_csv("290123/Input_train_Basic_dx_HLA_KIR.csv", delimiter=',', na_values=na_values_symbols)
-    data = preProcessing.replace_HLA_akiva_data(data)
+    data = pd.read_csv("./data/Input_train_Basic_dx_HLA_KIR.csv", delimiter=',', na_values=na_values_symbols)
+    data = preProcessing.replace_HLA(data)
     data = preProcessing.remove_sparse_columns(data)
-    labels = pd.read_csv("290123/Output_train.csv", delimiter=',', na_values=na_values_symbols)
+    labels = pd.read_csv("./data/Output_train.csv", delimiter=',', na_values=na_values_symbols)
     data = pd.concat((data, labels), axis=1)
 
-    data_test = pd.read_csv("290123/Input_test_Basic_dx_HLA_KIR.csv", delimiter=',', na_values=na_values_symbols)
+    data_test = pd.read_csv("./data/Input_test_Basic_dx_HLA_KIR.csv", delimiter=',', na_values=na_values_symbols)
     data_test = preProcessing.replace_HLA_akiva_data(data_test)
     data_test = preProcessing.remove_sparse_columns(data_test)
-    labels_test = pd.read_csv("290123/Output_test.csv", delimiter=',', na_values=na_values_symbols)
+    labels_test = pd.read_csv("./data/Output_test.csv", delimiter=',', na_values=na_values_symbols)
     data_test = pd.concat((data_test, labels_test), axis=1)
 
     data = pd.concat((data, data_test), axis=0)
@@ -145,13 +136,10 @@ if __name__ == '__main__':
     # to data frame
     df = pd.DataFrame(save, index=columns, columns=[cat + "_hazard" for cat in categories])
     df.to_csv(f'haz_ratio_without_sparse.csv')
+    return results_ratio
 
-    # save the p value
-    save = np.asmatrix(p_value)
-    df = pd.DataFrame(save, index=columns, columns=[cat + "_p_value" for cat in categories])
-    df.to_csv(f'haz_p_value_without_sparse.csv')
+if __name__ == '__main__':
+    hazard_df = Hazrad_ratio()
+    calculate_auc(hazard_df)
+    plot_heatmap(hazard_df)
 
-
-    # np.savetxt(f'haz_1.csv', save.T, delimiter=",")
-    # save = np.asmatrix(results_haz_2)
-    # np.savetxt(f'haz_2.csv', save.T, delimiter=",")
